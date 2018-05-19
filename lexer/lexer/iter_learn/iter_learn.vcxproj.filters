@@ -15,20 +15,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <Text Include="test.txt">
-      <Filter>资源文件</Filter>
-    </Text>
-    <Text Include="test2.txt">
-      <Filter>资源文件</Filter>
-    </Text>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="源.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="lexer.cpp">
+    <ClCompile Include="源.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

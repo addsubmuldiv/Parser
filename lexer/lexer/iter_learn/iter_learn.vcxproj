@@ -20,8 +20,8 @@
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>
-    <ProjectGuid>{38E4C3A0-D76C-42A1-A25F-91366A0FC025}</ProjectGuid>
-    <RootNamespace>lexer</RootNamespace>
+    <ProjectGuid>{1E38EA00-0F0D-4781-8113-940E75245A8C}</ProjectGuid>
+    <RootNamespace>iterlearn</RootNamespace>
     <WindowsTargetPlatformVersion>10.0.16299.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -74,7 +74,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <SDLCheck>false</SDLCheck>
+      <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
     </ClCompile>
   </ItemDefinitionGroup>
@@ -115,14 +115,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <Text Include="test.txt" />
-    <Text Include="test2.txt" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="源.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="lexer.cpp" />
+    <ClCompile Include="源.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
