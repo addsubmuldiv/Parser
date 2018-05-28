@@ -1,5 +1,6 @@
 #include <iostream>
 #include <vector>
+#include <cctype>
 #include <string>
 #include <stack>
 #include <set>
@@ -8,6 +9,12 @@
 #include <algorithm>
 using namespace std;
 
+
+#define KEYWORD 0
+#define IDENTIFIER 1
+#define OPERATOR 3
+#define CONSTANT 4
+#define DIVIDE 2
 #define CLOSURE '*'
 #define JOIN '&'
 #define OR '|'
@@ -17,7 +24,9 @@ typedef unsigned int GroupId;
 typedef int State;
 GroupId STARTGROUP;
 bool GROUPCHANGED = false;
-
+vector<string> operatorChars = { "+","-","*","/","=",">","<","<=",">=","!=" };
+vector<string> keywords = { "int","double","float" };
+bool IsTheStringNeedToDivideAgain(string &s);
 int findGroupId(int state);	//给定一个状态找在哪个组
 
 struct Edge {
@@ -49,7 +58,7 @@ Edge::Edge(int start, int end, char letter)
 	this->startGroupId = -1;
 	this->endGroupId = -1;
 }
-
+int S_num = -1;
 
 class FA {
 public:
@@ -59,20 +68,43 @@ public:
 	int S0, f;
 	vector<int> finalStates;
 	string zgs;
+	int dfaEdgeCount;
 	State currentState;
 public:
 	FA(string zgs);
+	FA(char zgs);
 	FA() {}
 	void Print();
 	void PrintEdgeGroup();
 	void Transition(char nextChar);	//TODO 对一个状态，DFA接受一个字符进行转移
 	bool isCurrentAccept();
 	bool isAccept(string str);
+	void clearTheChars();
 	inline State getCurrentState()
 	{
 		return currentState;
 	}
 };
+
+
+FA::FA(char zgs)
+{
+
+	int T1 = S_num + 1;//每次添加俩种状态
+	int T2 = S_num + 2;
+
+	S.push_back(T1);
+	S.push_back(T2);
+	this->chars.push_back(zgs);
+
+	Edge es(T1, T2, zgs);//添加一条边
+	edges.push_back(es);
+	S0 = T1;
+	f = T2;
+	S_num = S_num + 2;
+	this->zgs = zgs;
+}
+
 
 FA::FA(string zgs)
 {
@@ -113,7 +145,7 @@ void FA::PrintEdgeGroup()
 void FA::Transition(char nextChar)
 {
 	if (count(chars.begin(), chars.end(), nextChar) == 0) {
-		printf("不接受的字符");
+		//printf("不接受的字符");
 		currentState = -1;
 	}
 	for (Edge e : edges) {
@@ -122,7 +154,7 @@ void FA::Transition(char nextChar)
 			return;
 		}
 	}
-	printf("没有这样的边，初态为 %d , 接受 %c 到达另一个状态！", currentState, nextChar);
+	//printf("没有这样的边，初态为 %d , 接受 %c 到达另一个状态！", currentState, nextChar);
 	currentState = -1;
 }
 bool FA::isCurrentAccept()
@@ -141,12 +173,429 @@ bool FA::isAccept(string str)
 		it++;
 	}
 	if (count(finalStates.begin(), finalStates.end(), getCurrentState()) != 0) {
-		printf("\n\n接受该字符串！\n\n");
+		//printf("\n\n接受该字符串！\n\n");
 		return true;
 	}
-	printf("该自动机不接受此字符串");
+	//printf("该自动机不接受此字符串");
 	return false;
 }
+
+void FA::clearTheChars()
+{
+	sort(chars.begin(), chars.end());
+	auto iter = unique(chars.begin(), chars.end());
+	chars.erase(iter, chars.end());
+}
+
+
+
+FA bibao(FA NFA) {
+	FA reNFA = NFA;
+	State T1 = S_num + 1;//每次添加俩种状态
+	State T2 = S_num + 2;
+	reNFA.S.push_back(T1);
+	reNFA.S.push_back(T2);
+	Edge es(T1, T2, '~');//添加四条边
+	Edge es2(reNFA.f, reNFA.S0, '~');
+	Edge es3(T1, reNFA.S0, '~');
+	Edge es4(reNFA.f, T2, '~');
+	reNFA.edges.push_back(es);
+	reNFA.edges.push_back(es2);
+	reNFA.edges.push_back(es3);
+	reNFA.edges.push_back(es4);
+	reNFA.S0 = T1;
+	reNFA.f = T2;
+	S_num = S_num + 2;
+	return reNFA;
+
+}
+
+
+FA huo(FA NFA2, FA NFA1) {
+
+	FA reNFA = NFA1;//把NFA1放进去
+
+					//vector<char> chars;字符集
+
+	for (int i = 0; i<NFA2.S.size(); i++) {//把NFA2的S放进去
+		State temp;
+		temp = NFA2.S[i];
+		reNFA.S.push_back(temp);
+	}
+	for (int i = 0; i<NFA2.chars.size(); i++) {//把NFA2的chars放进去
+		char temp;
+		temp = NFA2.chars[i];
+		reNFA.chars.push_back(temp);
+	}
+	//vector<Edge> edges;
+	for (int i = 0; i<NFA2.edges.size(); i++) {//把NFA2的edges放进去
+
+		reNFA.edges.push_back(NFA2.edges[i]);
+	}
+
+
+	State T1 = S_num + 1;//每次添加俩种状态
+	State T2 = S_num + 2;
+	reNFA.S.push_back(T1);
+	reNFA.S.push_back(T2);
+	Edge es(T1, NFA1.S0, '~');//添加四条边
+	Edge es2(T1, NFA2.S0, '~');
+	Edge es3(NFA1.f, T2, '~');
+	Edge es4(NFA2.f, T2, '~');
+
+	reNFA.edges.push_back(es);
+	reNFA.edges.push_back(es2);
+	reNFA.edges.push_back(es3);
+	reNFA.edges.push_back(es4);
+
+	reNFA.S0 = T1;
+	reNFA.f = T2;
+	S_num = S_num + 2;
+	return reNFA;
+}
+
+FA lianjie(FA NFA2, FA NFA1) {
+	FA reNFA = NFA1;//把NFA1放进去
+
+					//vector<char> chars;字符集
+
+	for (int i = 0; i<NFA2.S.size(); i++) {//把NFA2的S放进去
+		State temp;
+		temp = NFA2.S[i];
+		reNFA.S.push_back(temp);
+	}
+	for (int i = 0; i<NFA2.chars.size(); i++) {//把NFA2的chars放进去
+		char temp;
+		temp = NFA2.chars[i];
+		reNFA.chars.push_back(temp);
+	}
+	//vector<Edge> edges;
+	for (int i = 0; i<NFA2.edges.size(); i++) {//把NFA2的edges放进去
+
+		reNFA.edges.push_back(NFA2.edges[i]);
+	}
+	reNFA.f = NFA2.f;
+
+	State T1 = S_num + 1;//每次添加俩种状态
+	State T2 = S_num + 2;
+	reNFA.S.push_back(T1);
+	reNFA.S.push_back(T2);
+	Edge es(T1, reNFA.S0, '~');//添加三条边
+	Edge es2(reNFA.f, T2, '~');
+	Edge es3(NFA1.f, NFA2.S0, '~');
+
+	reNFA.edges.push_back(es);
+	reNFA.edges.push_back(es2);
+	reNFA.edges.push_back(es3);
+
+	reNFA.S0 = T1;
+	reNFA.f = T2;
+	S_num = S_num + 2;
+	return reNFA;
+}
+
+
+
+void print(FA NFA) {
+
+	cout << "初态:" << NFA.S0 << "             终态：" << NFA.f << endl;
+	cout << "状态集：      ";
+	for (int i = 0; i<NFA.S.size(); i++) {
+
+		cout << NFA.S[i] << "    ";
+
+	}
+	cout << endl;
+	cout << "字符集：      ";
+	for (int i = 0; i<NFA.chars.size(); i++) {
+
+		cout << NFA.chars[i];
+	}
+	cout << endl;
+	cout << "边集：      " << endl;
+	for (int i = 0; i<NFA.edges.size(); i++) {
+
+		cout << "起点：" << NFA.edges[i].start << "           终点：" << NFA.edges[i].end << "           条件：" << NFA.edges[i].letter << endl;
+
+	}
+}
+
+
+
+
+
+FA TransNFA(string zgs) {
+	stack <FA>stk;//定义一个NFA栈
+	zgs = zgs + '#';
+	FA NFA;
+	stk.push(NFA);		//哨兵
+	int i = 0;
+	while (zgs[i] != '#') {
+		if (zgs[i] != '|'&&zgs[i] != '&'&&zgs[i] != '*') {//表达式压栈
+			FA NFAs(zgs[i]);
+			NFA = NFAs;
+			stk.push(NFA);
+		}
+		else if (zgs[i] == '*') {//闭包
+			NFA = stk.top();
+			stk.pop();
+			NFA = bibao(NFA);
+			stk.push(NFA);
+		}
+		else if (zgs[i] == '|')//或
+		{
+			FA NFA1 = stk.top(); stk.pop();
+			FA NFA2 = stk.top(); stk.pop();
+			NFA = huo(NFA1, NFA2);
+			stk.push(NFA);
+		}
+		else {//连接
+			FA NFA1 = stk.top(); stk.pop();
+			FA NFA2 = stk.top(); stk.pop();
+			NFA = lianjie(NFA1, NFA2);
+			stk.push(NFA);
+		}
+		i++;
+	}
+	NFA.clearTheChars();
+	return NFA;
+
+}
+
+
+bool contain(vector<Edge> src, Edge elem) {
+
+	for (int i = 0; i<src.size(); i++) {
+		Edge item = src[i];
+		if (item.start == elem.start&&item.end == elem.end&&item.letter == elem.letter) {
+			return true;
+		}
+	}
+	return false;
+
+}
+
+
+
+vector<Edge> distinct(vector<Edge> src) {
+	vector<Edge> dest;
+	for (int i = 0; i<src.size(); i++) {
+		Edge item = src[i];
+		if (!contain(dest, item)) {
+			dest.push_back(item);
+		}
+	}
+	return dest;
+}
+
+
+
+
+FA NFA_TO_DFA(FA NFA)
+{
+	FA dfa;
+	dfa.S0 = 0;
+	//初始化 DFA的字符集 ，去掉空
+	for (int i = 0; i < NFA.chars.size(); i++)
+	{
+		if (NFA.chars[i] == '~') {
+			continue;
+		}
+		else {
+			dfa.chars.push_back(NFA.chars[i]);
+		}
+	}
+
+	vector <vector<int> > unit; //定义二维向量 记录接下的生成的集合
+	vector <int> u;
+	u.push_back(999);
+	unit.push_back(u);
+	unit[0].push_back(0);
+	unit[0].push_back(NFA.S0); 
+							   //--------建立第一个集合----
+							   //1.直接空转移
+	for (int i = 0; i < NFA.edges.size(); i++)
+	{
+		if (NFA.edges[i].start == NFA.S0 && NFA.edges[i].letter == '~')
+		{
+			unit[0].push_back(NFA.edges[i].end);   //初始状态开始的所有直接空转移到达的状态
+		}                                          
+	}
+	//2.间接空转移
+	for (int i = 3; i < unit[0].size(); i++)	//初始状态的间接空转移
+	{
+		for (int j = 0; j < NFA.edges.size(); j++)         //在上一步的基础上，查询原NFA，找二次空转移后所获得的状态
+		{
+			if (unit[0][i] == NFA.edges[j].start && NFA.edges[j].letter == '~')//例如：999,0,开始状态0,1,7，2,4（通过1可以找到 2,4）
+			{
+				unit[0].push_back(NFA.edges[j].end);  //存入向量中
+			}
+		}
+	}
+	//第一个集合建立完毕，接下扩建DFA
+	
+	dfa.dfaEdgeCount = 1; //初始化DFA图边数1
+	u.pop_back();
+	u.push_back(1000);//1000代表空
+	unit.push_back(u);
+	for (int i = 0; i < unit.size(); i++)
+	{                                                    
+		if (unit[i][0] == 999)                         
+		{                                              
+			for (int j = 0; j < dfa.chars.size(); j++)    //循环每一个分支条件， 例如a，b,c条件
+			{                                            
+				if (unit[dfa.dfaEdgeCount][0] == 1000)
+				{ //当前位置是否为空，空则代表上一个转换符的集合不为空，不为空则代表上一个转换符没有用到
+					unit.pop_back();
+
+					u.pop_back();
+					u.push_back(999);
+					unit.push_back(u);
+					unit[dfa.dfaEdgeCount].push_back(j);
+				}
+
+
+				for (int k = 2; k < unit[i].size(); k++)//直接转移
+				{                                                      //找出当前集合当前条件  会去到的状态
+					for (int h = 0; h < NFA.edges.size(); h++)
+					{                                                //查询NFA图中所有的边，直接可以到达的终态 例如：3,8
+						if (unit[i][k] == NFA.edges[h].start && dfa.chars[j] == NFA.edges[h].letter)
+						{                                            //找到NFA图中开始状态相同，通过相同的条件后
+
+							unit[dfa.dfaEdgeCount].push_back(NFA.edges[h].end);
+						}
+					}
+				}
+
+				if (unit[dfa.dfaEdgeCount].size() == 2)
+				{
+					continue;//这个转换符没有用到，空集合
+				}
+				
+
+
+				Edge e(i, dfa.dfaEdgeCount, dfa.chars[j]);
+				dfa.edges.push_back(e);   //将e这条边 放入 DFA中
+
+
+										  //---转移后的补全，集合内部进行遍历------
+				for (int l = 2; l < unit[dfa.dfaEdgeCount].size(); l++)
+				{
+					for (int m = 0; m < NFA.edges.size(); m++)//查询NFA图
+					{
+						if (unit[dfa.dfaEdgeCount][l] == NFA.edges[m].start&&NFA.edges[m].letter == '~')
+						{
+							//如果初始状态相同，转换符为空  且
+							int index; //查重
+							for (index = 2; index< unit[dfa.edges.size()].size(); index++)
+							{
+								if (NFA.edges[m].end != unit[dfa.dfaEdgeCount][index])
+									continue;
+								else
+								{
+									break;
+								}
+							}
+							if (index == unit[dfa.dfaEdgeCount].size())
+							{
+								unit[dfa.edges.size()].push_back(NFA.edges[m].end);
+							}
+						}
+					}
+				}
+
+
+
+				//查询整个DFA中的集合是否有重复的出现
+				bool issame = false;
+				int flag = -1;
+				int k, n;
+				for (k = 0; k<unit.size() - 1; k++)
+				{
+					for (n = 2; n<unit[k].size() && n<unit[unit.size() - 1].size(); n++)//防止下标越界
+					{                                    //前者限制比较的行长度  后者是和遍历过的
+						if (unit[k][n] == unit[unit.size() - 1][n])
+						{
+							continue;
+						}
+						else {
+							break;
+						}
+					}
+					if (n == unit[k].size())
+					{
+						issame = true;
+						if (flag == -1)
+						{
+							flag = k;//把当前行数赋给FLAG	
+						}
+						break;
+					}
+					else
+					{
+						issame = false;
+					}
+				}
+				if (issame)
+				{
+					unit[unit.size() - 1][0] = flag;//每行首位数字代表 和他重复的行数位置
+				}
+				dfa.dfaEdgeCount++;//最后边数多1
+				u.pop_back();
+				u.push_back(1000);
+				unit.push_back(u);
+			}
+		}
+	}
+	
+
+
+	int news = 0;//合并新状态标号
+	for (int i = 0; i < unit.size(); i++)
+	{
+		if (unit[i][0] == 999)
+		{
+			unit[i][0] = 999 + news;
+			news++;
+			dfa.S.push_back(unit[i][0] - 999);//整理DFA的状态集
+			for (int j = 2; j < unit[i].size(); j++)
+			{
+				if (unit[i][j] == NFA.f)
+				{
+					
+					dfa.finalStates.push_back(unit[i][0] - 999);//所有终态
+					break;
+				}  //整理终态，把终态集合重命名
+			}
+		}
+	}
+
+
+	for (int i = 0; i < dfa.dfaEdgeCount - 1; i++) {//dfa图中下标变状态
+		if (unit[dfa.edges[i].start][0] >= 999) {//初始状态改变
+			dfa.edges[i].start = unit[dfa.edges[i].start][0] - 999;//（不是重复出现的）
+		}
+		else {
+			dfa.edges[i].start = unit[unit[dfa.edges[i].start][0]][0] - 999;//（重复出现的集合）
+		}
+
+		if (unit[dfa.edges[i].end][0] >= 999) {//终止状态改变
+			dfa.edges[i].end = unit[dfa.edges[i].end][0] - 999;//不是重复出现的）
+		}
+		else {
+			dfa.edges[i].end = unit[unit[dfa.edges[i].end][0]][0] - 999;//d重复出现的集合）
+		}
+
+	}
+
+	cout << endl << "最终DFA如下：" << endl;
+	dfa.edges = distinct(dfa.edges);
+	print(dfa);
+	return dfa;
+}
+
+
+
 typedef FA DFA;
 int GetPriority(char sy)//设置各个操作符的优先级
 {
@@ -433,8 +882,6 @@ void Split(DFA &dfa)
 			for (char ch : dfa.chars) {	//对每一个dfa接受的字符
 				auto it = groups[i].states.begin();
 				while (it != groups[i].states.end()) {	//对每一个该组中的状态
-					/*运气好啊，其实状态始终是第0个组的第0个元素，所以在分开的时候
-					分出去的一定不会是它……所以它的分组ID始终就是0*/
 					State tmpState = *it;	//先保存这个状态
 					GroupId targetGroup = Transition(tmpState, ch, edges);
 					if (targetGroup != groups[i].groupId) {		//看在这个字符下该状态的目标组是不是本组
@@ -605,6 +1052,188 @@ DFA UnitTestOfMinimizeDfa(const char *str)
 
 
 
+namespace stringMethod {
+	using std::string;
+	using std::vector;
+	string& trim(string &s)
+	{
+		if (s.empty()) {
+			return s;
+		}
+
+		s.erase(0, s.find_first_not_of(" "));
+		s.erase(s.find_last_not_of(" ") + 1);
+		return s;
+	}
+
+	vector<string>& split(std::string& s, const char *delim)
+	{
+		vector<string> *ret = new vector<string>;
+		size_t last = 0;
+		size_t index = s.find_first_of(delim, last);
+		while (index != std::string::npos) {
+			ret->push_back(s.substr(last, index - last));
+			last = index + 1;
+			index = s.find_first_of(delim, last);
+		}
+		if (index - last>0) {
+			ret->push_back(s.substr(last, index - last));
+		}
+		return *ret;
+	}
+}
+
+
+
+bool IsTwoCharOper(char first, char second)
+{
+	string op = "";
+	op = op + first + second;
+	if (count(operatorChars.begin(), operatorChars.end(), op) != 0) {
+		return true;
+	}
+	return false;
+}
+
+
+/*substr的参数是首下标和字符数……*/
+/*按行读取输入,对这一行进行分词*/
+vector<string> DivideWord(string input)
+{
+	vector<string> res = stringMethod::split(input, " ");
+	vector<string> tmp;
+	vector<string> divideAgain;
+	auto it = res.begin();
+	while (it != res.end()) {
+		if (IsTheStringNeedToDivideAgain(*it)) {
+			size_t last = 0;
+			for (size_t i = 0; i < (*it).size(); i++) {
+				if (!isdigit((*it)[i]) && IsTwoCharOper((*it)[i], (*it)[i+1])) {
+					if(last != i)
+						divideAgain.push_back((*it).substr(last, i-last));
+					string tmp = "";
+					tmp = tmp + (*it)[i] + (*it)[i + 1];
+					divideAgain.push_back(tmp);
+					i += 2;
+					if (i >= (*it).size()) {
+						printf("语法错误");
+					}
+					last = i;
+					break;
+				} 
+				else {
+					string op = string("");
+					op = op + (*it)[i];
+					if (count(operatorChars.begin(), operatorChars.end(), op) != 0) {
+						if (i != last)
+							divideAgain.push_back((*it).substr(last, i - last));
+						divideAgain.push_back(op);
+						i++;
+						last = i;
+					}
+				}
+			}
+			if ((*it).size() != last)
+				divideAgain.push_back((*it).substr(last, (*it).size() - last));
+			it = res.erase(it);
+			auto iter = divideAgain.rbegin();
+			while (iter != divideAgain.rend()) {	//如果不清空，divideAgain里面的东西会不断加到res里面，然后不断出现需要再分的串，就死循环了
+				it = res.insert(it, *iter);
+				iter++;
+			}
+			divideAgain.clear();
+		}
+		else
+			it++;
+	}
+	return res;
+}
+
+
+bool IsNotOper(string &s)
+{
+	if (s != "+"&&s != "-"&&s != "*"&&s != "/"&&s != "="&&s != "!="&&s != ">"&&s != "<"&&s != "<="&&s != ">=")
+		return true;
+	else
+		return false;
+}
+
+
+
+bool IsTheStringNeedToDivideAgain(string &s)
+{
+	if (IsNotOper(s)) {
+		for (string oper : operatorChars) {
+			if (s.find(oper) != string::npos) {
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
+typedef int TokenClass;
+typedef string Value;
+class Token {
+public:
+	TokenClass tokenClass;
+	Value valueOrPos;
+public:
+	Token()
+	{
+		tokenClass = -1;
+		valueOrPos = "";
+	}
+};
+
+
+
+Token isKeyword(string str)
+{
+	Token res;
+	for (size_t i = 0; i < keywords.size(); i++) {
+		if (str == keywords[i]) {
+			res.tokenClass = KEYWORD;
+			res.valueOrPos = res.valueOrPos + to_string(int(i));
+			return res;
+		}
+	}
+	res.tokenClass = -1;
+	return res;
+}
+
+
+Token isOperator(string str)
+{
+	Token res;
+	for (size_t i = 0; i < operatorChars.size(); i++) {
+		if (stringMethod::trim(str) == operatorChars[i]) {
+			res.tokenClass = OPERATOR;
+			res.valueOrPos = res.valueOrPos + str;
+			return res;
+		}
+	}
+	res.tokenClass = -1;
+	return res;
+}
+
+vector<string> divide = { ",",";","\'","\"" };
+
+Token isDivide(string s)
+{
+	Token res;
+	for (size_t i = 0; i < divide.size(); i++) {
+		if (stringMethod::trim(s) == divide[i]) {
+			res.tokenClass = DIVIDE;
+			res.valueOrPos = res.valueOrPos + s;
+			return res;
+		}
+	}
+	res.tokenClass = -1;
+	return res;
+}
+
+
 int main(void)
 {
 	/*
@@ -613,13 +1242,79 @@ int main(void)
 		string res = Transform(zgs);
 		cout << res;
 	*/
-	DFA dfa = UnitTestOfMinimizeDfa("test2.txt");
+	/*DFA dfa = UnitTestOfMinimizeDfa("test2.txt");
 	string input = "bbbab";
 	while (input != "fuck") {
 		dfa.isAccept(input);
 		cout << "\n\n\n" << "下一次输入：\n";
 		cin >> input;
+	}*/
+
+	////string zgs1 = "(a|b|c)*&a&b&(a&b|b&c)*";
+	//string zgs2 = "(a|b)*&a&b&b";
+
+	//string ss = Transform(zgs2);
+	//FA fa = TransNFA(ss);
+	//fa = NFA_TO_DFA(fa);
+	//fa = Hopcroft(fa);
+	//
+	//putchar('\n');
+	string input = "int aA=123++848";
+	//分词
+	vector<string> words = DivideWord(input);
+	for (string s : words) {
+		cout << s << endl;
 	}
+
+	//string zgs = "(a|b*)*|d";
+	//string res = Transform(zgs);
+	//cout << res;
+	//标识符Dfa
+	string identifier = "[a|A|_]&[a|A|0|_]*";
+	string zgsback = Transform(identifier);
+	cout << zgsback << endl;
+	FA NFAIdentifier = TransNFA(zgsback);
+	print(NFAIdentifier);
+	DFA dfaIdentifier = NFA_TO_DFA(NFAIdentifier);
+	dfaIdentifier = Hopcroft(dfaIdentifier);
+	
+	//数字DFA
+	string integer = "[1-9]&[0-9]*";
+	string zgsbackInteger = Transform(integer);
+	cout << zgsbackInteger << endl;
+	FA NFAInteger = TransNFA(zgsbackInteger);
+	DFA dfaInteger = NFA_TO_DFA(NFAInteger);
+	dfaInteger = Hopcroft(dfaInteger);
+
+	
+	putchar('\n');
+	putchar('\n');
+	putchar('\n');
+	putchar('\n');
+
+	ofstream os("output.txt");
+
+	for (string s : words) {
+		if (isKeyword(s).tokenClass!=-1) {
+			Token tmp = isKeyword(s);
+			os << "(" << tmp.tokenClass << "," << tmp.valueOrPos.c_str() << ")" << endl;
+		}
+		else if (dfaIdentifier.isAccept(s)) {
+			os << "(" << IDENTIFIER << "," << s << ")" << endl;
+		}
+		else if (dfaInteger.isAccept(s)) {
+			os << "(" << CONSTANT << "," << s << ")" << endl;
+		}
+		else if (isOperator(s).tokenClass != -1) {
+			Token tmp = isOperator(s);
+			os << "(" << tmp.tokenClass << "," << tmp.valueOrPos.c_str() << ")" << endl;
+		}
+		else if (isDivide(s).tokenClass != -1) {
+			Token tmp = isDivide(s);
+			os << "(" << tmp.tokenClass << "," << tmp.valueOrPos.c_str() << ")" << endl;
+		}
+	}
+	
 	system("pause");
 }
 

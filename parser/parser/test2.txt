@@ -1,0 +1,8 @@
+7
+S->aH
+H->aMd
+H->d
+M->Ab
+M->~
+A->aM
+A->e
