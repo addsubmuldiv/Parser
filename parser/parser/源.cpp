@@ -41,7 +41,7 @@ bool IsExist(set<string> set, string x);
 bool IsExist(set<char> set, char x);
 bool IsNullable(string left);
 void printFollow();
-
+set<char> calculateFirst_S(string right);
 
 
 /*获取在产生式向量里的下标*/
@@ -273,6 +273,18 @@ void calculateFirst(Production *production, const int N)
 	} while (CHANGING);
 }
 
+/*计算任意串的first集*/
+set<char> calculateFirst_S(string right)
+{
+	if (IsTerminal(right[0])) {
+		set<char> res = { right[0] };
+		return res;
+	}
+	if (IsNonTerminal(right[0])) {
+		return cfgVector[getIndex(string("") + right)].firstSet;
+	}
+}
+
 /*打印follow集*/
 void calculateFollow(Production *production, const int N)
 {
@@ -286,7 +298,7 @@ void calculateFollow(Production *production, const int N)
 			temp = cfgVector[index].followSet;	//这里是拷贝构造
 			// TODO
 			string &right = production[i].right;
-			for (int j = right.size() - 1; j > -1; --j) {
+			for (int j = right.size() - 1; j > -1; --j) {	//逆序，这里不能用size_t,因为它永远不会小于0
 				if (IsTerminal(right[j])) {
 					temp.clear();
 					temp.insert(right[j]);

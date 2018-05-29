@@ -141,9 +141,10 @@ int main(void)
 	//	printf("fuck");
 
 
-	string zgs = "[0-9|a-z|A-Z|_]*";
-	zgs = Transform(zgs);
-	cout << zgs.c_str() << endl;
+	string a("fuckyou");
+	for (size_t i = a.size()-1; i >= 0; i--) {
+		cout << a[i] << endl;
+	}
 
 
 
