@@ -1,4 +1,4 @@
-4
+4 A
 A->aABl
 A->a
 B->Bb

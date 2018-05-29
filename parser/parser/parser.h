@@ -11,14 +11,16 @@
 #include <set>
 #include <fstream>
 using namespace std;
-class WF
+
+/*文法的数据结构*/
+class CFG
 {
 public:
 	string left;	//产生式左边
 	set<string> right;	//右边
 	set<char> firstSet;
 	set<char> followSet;
-	WF(const string& temp)
+	CFG(const string& temp)
 	{
 		left = temp;
 		right.clear();
@@ -38,27 +40,39 @@ public:
 		right.insert(temp);
 	}
 	void printFirst();
-
-	WF(const WF &wf);
+	void printFollow();
+	CFG(const CFG &wf);
 };
 
-WF::WF(const WF &wf)
+CFG::CFG(const CFG &wf)
 {
 	left = wf.left;
-	for (string s : wf.right) {
+	/*for (string s : wf.right) {
 		right.insert(s);
-	}
+	}*/
+	right = wf.right;	//STL都是深拷贝
 }
 
+/*为计算方便的产生式的数据结构*/
 struct Production {
 	string left;
 	string right;
 };
 
-void WF::printFirst() 
+/*输出first集*/
+void CFG::printFirst() 
 {
 	printf("first %s:", left.c_str());
 	for (const char s : this->firstSet) {
+		printf("%c ", s);
+	}
+	putchar('\n');
+}
+
+void CFG::printFollow()
+{
+	printf("follow %s:", left.c_str());
+	for (const char s : this->followSet) {
 		printf("%c ", s);
 	}
 	putchar('\n');

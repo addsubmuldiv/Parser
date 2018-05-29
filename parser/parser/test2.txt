@@ -1,4 +1,4 @@
-7
+7 S
 S->aH
 H->aMd
 H->d
