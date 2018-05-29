@@ -13,14 +13,14 @@
 using namespace std;
 
 /*文法的数据结构*/
-class CFG
+class Production
 {
 public:
 	string left;	//产生式左边
 	set<string> right;	//右边
 	set<char> firstSet;
 	set<char> followSet;
-	CFG(const string& temp)
+	Production(const string& temp)
 	{
 		left = temp;
 		right.clear();
@@ -41,10 +41,10 @@ public:
 	}
 	void printFirst();
 	void printFollow();
-	CFG(const CFG &wf);
+	Production(const Production &wf);
 };
 
-CFG::CFG(const CFG &wf)
+Production::Production(const Production &wf)
 {
 	left = wf.left;
 	/*for (string s : wf.right) {
@@ -54,13 +54,13 @@ CFG::CFG(const CFG &wf)
 }
 
 /*为计算方便的产生式的数据结构*/
-struct Production {
+struct ProductionArray {
 	string left;
 	string right;
 };
 
 /*输出first集*/
-void CFG::printFirst() 
+void Production::printFirst() 
 {
 	printf("first %s:", left.c_str());
 	for (const char s : this->firstSet) {
@@ -69,7 +69,7 @@ void CFG::printFirst()
 	putchar('\n');
 }
 
-void CFG::printFollow()
+void Production::printFollow()
 {
 	printf("follow %s:", left.c_str());
 	for (const char s : this->followSet) {
