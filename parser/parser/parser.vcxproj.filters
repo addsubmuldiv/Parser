@@ -21,15 +21,21 @@
     <Text Include="test2.txt">
       <Filter>资源文件</Filter>
     </Text>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="parser.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
+    <Text Include="input.txt">
+      <Filter>资源文件</Filter>
+    </Text>
+    <Text Include="declear.txt">
+      <Filter>资源文件</Filter>
+    </Text>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="源.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="parser.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

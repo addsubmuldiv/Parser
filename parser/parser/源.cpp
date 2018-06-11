@@ -1,4 +1,4 @@
-#include <iostream>
+ï»¿#include <iostream>
 #include <cstdio>
 #include <algorithm>
 #include <cstring>
@@ -9,20 +9,32 @@
 #include <map>
 #include <set>
 #include <fstream>
+#include <unordered_map> // TODO ç”¨æ¥åšé¢„æµ‹åˆ†æè¡¨
 #include "parser.h"
 #define MAX 501
 #define EMPTY "~"
+#define EMPTYCHAR '~'
+#define HASH '#'
+
+
+#define DIVIDE 'c'
+#define IDENTIFIER 'b'
+#define KEYCHAR 'a'
+#define NUMBER 'd'
+#define OPER 'e'
+
+
 using namespace std;
 using Syntax = vector<Production>;
-
+vector<Syntax> syntaxBuffer;
+vector<PredictTable> predictTables;
 char lastNonTerminal;
 map<string, int> syntaxDic;
-Syntax proVector;	//Ò»¸öÓï·¨£¬²úÉúÊ½¼¯ºÏ
-ProductionArray *productionArray;
+Syntax proVector;	//ä¸€ä¸ªè¯­æ³•ï¼Œäº§ç”Ÿå¼é›†åˆ
+ProductionArray *proArray;
 set<string> nullable;
 string START;
-static string openFile("test2.txt");
-
+static string openFile("declear.txt");
 
 int getIndex(string s);
 void remove();
@@ -40,64 +52,66 @@ bool IsExist(set<char> set, char x);
 bool IsNullable(string left);
 void printFollow();
 set<char> calculateFirst_S(string right);
+PredictTable& buildPredictive(int sum);
 
+void readAndAnalysis(std::ifstream &is1);
 
-/*»ñÈ¡ÔÚ²úÉúÊ½ÏòÁ¿ÀïµÄÏÂ±ê*/
+/*è·å–åœ¨äº§ç”Ÿå¼å‘é‡é‡Œçš„ä¸‹æ ‡*/
 int getIndex(string s)
 {
 	return syntaxDic[s] - 1;
 }
 
-//Ïû³ıÖ±½Ó×óµİ¹é
+//æ¶ˆé™¤ç›´æ¥å·¦é€’å½’
 void remove()
 {
 	for (size_t i = 0; i < proVector.size(); i++)
 	{
-		char ch = proVector[i].left[0];	//È¡Õı¹æÊ½×ó±ß£¬ÒÔ×Ö·ûĞÎÊ½
+		char ch = proVector[i].left[0];	//å–æ­£è§„å¼å·¦è¾¹ï¼Œä»¥å­—ç¬¦å½¢å¼
 		set<string>& zgsRights = proVector[i].right;
 		set<string>::iterator it = zgsRights.begin();
 		string newLeft = "";
 		bool flag = true;
-		for (; it != zgsRights.end(); it++)	//±éÀúÃ¿¸öÒÔ|·Ö¸ôµÄ²úÉúÊ½
-			if (it->at(0) == ch)	//Èç¹ûÓĞ×óµİ¹é
+		for (; it != zgsRights.end(); it++)	//éå†æ¯ä¸ªä»¥|åˆ†éš”çš„äº§ç”Ÿå¼
+			if (it->at(0) == ch)	//å¦‚æœæœ‰å·¦é€’å½’
 			{
 				newLeft = string("") + ++lastNonTerminal;
-				proVector.push_back(Production(newLeft));	//ĞÂ½¨Ò»¸ö²úÉúÊ½£¬ÕâÀï¸Ä±äÁËvectorµÄ´óĞ¡£¬¿ÉÄÜµ¼ÖÂ´ËÇ°¶¨ÒåµÄËùÓĞÒıÓÃ¡¢Ö¸ÕëÊ§Ğ§
+				proVector.push_back(Production(newLeft));	//æ–°å»ºä¸€ä¸ªäº§ç”Ÿå¼ï¼Œè¿™é‡Œæ”¹å˜äº†vectorçš„å¤§å°ï¼Œå¯èƒ½å¯¼è‡´æ­¤å‰å®šä¹‰çš„æ‰€æœ‰å¼•ç”¨ã€æŒ‡é’ˆå¤±æ•ˆ
 				syntaxDic[newLeft] = proVector.size();
 				flag = false;
 				break;
 			}
-		if (flag) continue;		//Èç¹ûÃ»ÓĞ×óµİ¹é,Ìø¹ıºó±ßµÄ²½Öè
-		int x = getIndex(newLeft);	//ĞÂÕı¹æÊ½ÏÂ±ê
-		vector<string> buf;	//»º³åÇø£¬´æ·Å(·Ç×óµİ¹éµÄ)(²úÉúÊ½ÓÒ±ß)
+		if (flag) continue;		//å¦‚æœæ²¡æœ‰å·¦é€’å½’,è·³è¿‡åè¾¹çš„æ­¥éª¤
+		int x = getIndex(newLeft);	//æ–°æ­£è§„å¼ä¸‹æ ‡
+		vector<string> buf;	//ç¼“å†²åŒºï¼Œå­˜æ”¾(éå·¦é€’å½’çš„)(äº§ç”Ÿå¼å³è¾¹)
 		set<string>& newRights = proVector[x].right;
 		newRights.insert(EMPTY);
 		auto iter = (proVector[i].right).begin();
 		while (!(proVector[i].right).empty())
 		{
-			if ((*iter).at(0) == ch)//Ã¿´ÎÅĞ¶ÏµÚÒ»¸ö£¬Èç¹ûÊÇ×óµİ¹éµÄÄÇÌõ	S->Sa|b  
+			if ((*iter).at(0) == ch)//æ¯æ¬¡åˆ¤æ–­ç¬¬ä¸€ä¸ªï¼Œå¦‚æœæ˜¯å·¦é€’å½’çš„é‚£æ¡	S->Sa|b|c|d|e ==> S->bS'|cS'|dS'|eS'
 				newRights.insert((*iter).substr(1) + newLeft); // S'->aS'	
 			else
 			{
 				buf.push_back(*iter + newLeft);
 			}
-			iter = (proVector[i].right).erase(iter);	//ÅĞ¶ÏÍêÈ¥µôµÚÒ»¸ö
+			iter = (proVector[i].right).erase(iter);	//åˆ¤æ–­å®Œå»æ‰
 		}
 		for (size_t j = 0; j < buf.size(); j++)
 		{
-			(proVector[i].right).insert(buf[j]);	//»º³åÇøµÄ²úÉúÊ½ÓÒ²¿·Å»ØÈ¥
+			(proVector[i].right).insert(buf[j]);	//ç¼“å†²åŒºçš„äº§ç”Ÿå¼å³éƒ¨æ”¾å›å»
 		}
 	}
 }
 
-/*ÅĞ¶ÏÊÇ·ñÓĞ×óÒò×Ó²¢·µ»Ø*/
+/*åˆ¤æ–­æ˜¯å¦æœ‰å·¦å› å­å¹¶è¿”å›*/
 bool judgeAndGetLeftFactor(set<string> &productionRight, char &ch)
 {
 	vector<char> res;
-	for (string s : productionRight) {	//°ÑµÚÒ»¸ö×Ö·û¶¼·Å½øÒ»¸öÊı×é
+	for (string s : productionRight) {	//æŠŠç¬¬ä¸€ä¸ªå­—ç¬¦éƒ½æ”¾è¿›ä¸€ä¸ªæ•°ç»„
 		res.push_back(s.at(0));
 	}
-	sort(res.begin(), res.end());	//ÅÅĞò¿´ÓĞÃ»ÓĞÒ»ÑùµÄ
+	sort(res.begin(), res.end());	//æ’åºçœ‹æœ‰æ²¡æœ‰ä¸€æ ·çš„
 	for (size_t i = 1; i < res.size(); i++) {
 		if (res[i - 1] == res[i]) {
 			ch = res[i];
@@ -107,56 +121,60 @@ bool judgeAndGetLeftFactor(set<string> &productionRight, char &ch)
 	return false;
 }
 
-/*ÌáÈ¡×óÒò×Ó*/
+/*æå–å·¦å› å­*/
 void extract()
 {
 	char ch = -1;
 	for (size_t i = 0; i < proVector.size(); i++) {
-		if (judgeAndGetLeftFactor(proVector[i].right, ch)) { //ÓĞ×óÒò×Óch
+		if (judgeAndGetLeftFactor(proVector[i].right, ch)) { //æœ‰å·¦å› å­ch
 			string newLeft = string("") + ++lastNonTerminal;
-			proVector.push_back(Production(newLeft));	//vector±ä»¯£¬ÒıÓÃÊ§Ğ§
-			set<string> &zgsRights = proVector[i].right;	//ÖØĞÂ¸³Öµ
+			proVector.push_back(Production(newLeft));	//vectorå˜åŒ–ï¼Œå¼•ç”¨å¤±æ•ˆ
+			set<string> &zgsRights = proVector[i].right;	//é‡æ–°èµ‹å€¼
 			syntaxDic[newLeft] = proVector.size();
 			int x = getIndex(newLeft);
 			auto it = zgsRights.begin();
 			while (it != zgsRights.end()) {
-				if (it->at(0) == ch) {	//×óÒò×Ó£¬Òª¸ÄµÄ
+				if (it->at(0) == ch) {	//å·¦å› å­ï¼Œè¦æ”¹çš„
 					if (it->size() == 1) {
-						proVector[x].right.insert(EMPTY);	//Èç¹ûÖ»ÓĞÒ»¸ö×Ö·û£¬ÄÇÌáÍê×óÒò×Ó¾ÍÊ£¿Õ
+						proVector[x].right.insert(EMPTY);	//å¦‚æœåªæœ‰ä¸€ä¸ªå­—ç¬¦ï¼Œé‚£æå®Œå·¦å› å­å°±å‰©ç©º
 					}
 					else {
 						proVector[x].right.insert(it->substr(1));
 					}
 					it = zgsRights.erase(it);
-				}
+				} 
+                else
+                    it++;
 			}
 			zgsRights.insert(string("") + ch + newLeft);
 		}
 	}
 }
 
-/*´òÓ¡ÎÄ·¨*/
+/*æ‰“å°æ–‡æ³•*/
 void printSyntax()
 {
 	for (size_t i = 0; i < proVector.size(); i++)
 		proVector[i].print();
 }
 
-/*´òÓ¡first¼¯*/
+/*æ‰“å°firsté›†*/
 void printFirst()
-{
+{   
+    printf("\nè¿™æ˜¯Firsté›†:\n");
 	for (size_t i = 0; i < proVector.size(); i++)
 		proVector[i].printFirst();
 }
 
-/*´òÓ¡follow¼¯*/
+/*æ‰“å°followé›†*/
 void printFollow()
 {
+    printf("\nè¿™æ˜¯Followé›†:\n");
 	for (size_t i = 0; i < proVector.size(); i++)
 		proVector[i].printFollow();
 }
 
-/*ÊÇ·ñÊÇÖÕ½á·û£¬°üÀ¨~*/
+/*æ˜¯å¦æ˜¯ç»ˆç»“ç¬¦ï¼ŒåŒ…æ‹¬~*/
 bool IsTerminal(char x)
 {
 	for (Production wf : proVector) {
@@ -166,7 +184,7 @@ bool IsTerminal(char x)
 	return true;
 }
 
-/*ÊÇ·ñÊÇ·ÇÖÕ½á·û*/
+/*æ˜¯å¦æ˜¯éç»ˆç»“ç¬¦*/
 bool IsNonTerminal(char x)
 {
 	for (Production wf : proVector) {
@@ -176,7 +194,7 @@ bool IsNonTerminal(char x)
 	return false;
 }
 
-/*ÅĞ¶Ï¼¯ºÏÖĞÊÇ·ñ´æÔÚÖ¸¶¨×Ö·û*/
+/*åˆ¤æ–­é›†åˆä¸­æ˜¯å¦å­˜åœ¨æŒ‡å®šå­—ç¬¦*/
 bool IsExist(set<char> set, char x)
 {
 	if (set.count(x) != 0)
@@ -185,7 +203,7 @@ bool IsExist(set<char> set, char x)
 		return false;
 }
 
-/*ÅĞ¶Ï¼¯ºÏÖĞÊÇ·ñÒÑ¾­´æÔÚÖ¸¶¨´®*/
+/*åˆ¤æ–­é›†åˆä¸­æ˜¯å¦å·²ç»å­˜åœ¨æŒ‡å®šä¸²*/
 bool IsExist(set<string> set, string x)
 {
 	if (set.count(x) != 0)
@@ -194,7 +212,7 @@ bool IsExist(set<string> set, string x)
 		return false;
 }
 
-/*¸Ã·ÇÖÕ½á·ûÊÇ·ñ¿ÉÒÔÍÆ³ö¿Õ*/
+/*è¯¥éç»ˆç»“ç¬¦æ˜¯å¦å¯ä»¥æ¨å‡ºç©º*/
 bool IsNullable(string left)
 {
 	if (nullable.count(left) != 0)
@@ -203,18 +221,18 @@ bool IsNullable(string left)
 		return false;
 }
 
-/*¼ÆËãÄÇĞ©¿ÉÒÔÍÆ³ö¿ÕµÄ·ÇÖÕ½á·û¼¯ºÏ*/
+/*è®¡ç®—é‚£äº›å¯ä»¥æ¨å‡ºç©ºçš„éç»ˆç»“ç¬¦é›†åˆ*/
 void calculateNullable(ProductionArray *production, const int N)
 {
 	nullable.clear();
 	bool CHANGING = false;
-	/*Õâ¸ö·ÇÖÕ½á·ûÊÇ·ñÄÜ¼ä½ÓÍÆ³ö¿Õ*/
+	/*è¿™ä¸ªéç»ˆç»“ç¬¦æ˜¯å¦èƒ½é—´æ¥æ¨å‡ºç©º*/
 	bool flag = true;
 	do {
 		for (int i = 0; i < N; i++) {
 			CHANGING = false;
 			flag = true;
-			if (production[i].right == "~") {	//¿ÉÒÔÖ±½ÓÍÆ³ö¿Õ
+			if (production[i].right == "~") {	//å¯ä»¥ç›´æ¥æ¨å‡ºç©º
 				if (IsExist(nullable, production[i].left))
 					continue;
 				nullable.insert(production[i].left);
@@ -222,7 +240,7 @@ void calculateNullable(ProductionArray *production, const int N)
 				continue;
 			}
 			for (char x : production[i].right) {
-				/*Èç¹ûÔÚÕâ¸ö²úÉúÊ½ÓÒ±ßµÄÈÎÒâÒ»¸ö·ÇÖÕ½á·û²»ÄÜÍÆ³ö¿Õ*/
+				/*å¦‚æœåœ¨è¿™ä¸ªäº§ç”Ÿå¼å³è¾¹çš„ä»»æ„ä¸€ä¸ªéç»ˆç»“ç¬¦ä¸èƒ½æ¨å‡ºç©º*/
 				if (count(nullable.begin(), nullable.end(), string("") + x) == 0) {
 					flag = false;
 				}
@@ -238,41 +256,47 @@ void calculateNullable(ProductionArray *production, const int N)
 	} while (CHANGING);
 }
 
-/*¼ÆËãfirst¼¯*/
+/*è®¡ç®—firsté›†*/
 void calculateFirst(ProductionArray *production, const int N)
-{
+{	/*
+		æŒ¨ä¸ªè¯»å–äº§ç”Ÿå¼çš„å­—ç¬¦ï¼Œå¦‚æœæ˜¯ç»ˆç»“ç¬¦ï¼Œå°±ç›´æ¥æ·»åŠ åˆ°firsté›†
+		å¦‚æœæ˜¯éç»ˆç»“ç¬¦ï¼Œå»æ‰ç©ºæ·»åŠ åˆ°firsté›†ï¼Œç„¶ååˆ¤æ–­å®ƒæ˜¯å¦å¯ä»¥æ¨å‡ºç©ºï¼Œå¦‚æœå¯ä»¥ï¼Œç»§ç»­éå†å­—ç¬¦
+		å¦åˆ™å°±æ¢ä¸‹ä¸€ä¸ªäº§ç”Ÿå¼
+	*/
 	bool CHANGING = false;
 	do {
 		for (int i = 0; i < N; i++) {
 			for (char x : production[i].right) {
 				CHANGING = false;
-				if (IsTerminal(x)) {	//Èç¹ûÊÇÖÕ½á·û
+				if (IsTerminal(x)) {	//å¦‚æœæ˜¯ç»ˆç»“ç¬¦
 					int index = getIndex(production[i].left);
-					if (IsExist(proVector[index].firstSet, x))	//Èç¹û¸Ã×Ö·ûÒÑ¾­´æÔÚÓÚ´Ë·ÇÖÕ½á·ûµÄFirst
-						break;	//Ö±½ÓÍË³ö¶ÔÊ£Óà×Ö·ûµÄ±éÀú
-					proVector[index].firstSet.insert(x);	//Ö±½ÓÌí¼Óµ½First¼¯
+					if (IsExist(proVector[index].firstSet, x))	//å¦‚æœè¯¥å­—ç¬¦å·²ç»å­˜åœ¨äºæ­¤éç»ˆç»“ç¬¦çš„First
+						break;	//ç›´æ¥é€€å‡ºå¯¹å‰©ä½™å­—ç¬¦çš„éå†
+					proVector[index].firstSet.insert(x);	//ç›´æ¥æ·»åŠ åˆ°Firsté›†
 					CHANGING = true;
 					break;
 				}
-				if (IsNonTerminal(x)) {	//·ÇÖÕ½á·û
+				if (IsNonTerminal(x)) {	//éç»ˆç»“ç¬¦
 					int indexM = getIndex(string("") + x);
 					int indexN = getIndex(production[i].left);
 					if (!proVector[indexM].firstSet.empty())
 						for (char c : proVector[indexM].firstSet) {
 							if (IsExist(proVector[indexN].firstSet, c))
-								continue;	//Èç¹ûÒÑ¾­´æÔÚ£¬ÄÇÃ´Ö±½Ó½øÏÂ´ÎÑ­»·
-							proVector[indexN].firstSet.insert(c);
-							CHANGING = true;
+								continue;	//å¦‚æœå·²ç»å­˜åœ¨ï¼Œé‚£ä¹ˆç›´æ¥è¿›ä¸‹æ¬¡å¾ªç¯
+							if (c != EMPTYCHAR) {
+								proVector[indexN].firstSet.insert(c);
+								CHANGING = true;
+							}
 						}
-					if (!IsNullable(proVector[indexM].left))	//Èç¹ûÕâ¸ö·ÇÖÕ½á·û²»ÄÜÍÆ³ö¿Õ
-						break;			//ÍË³ö¶ÔÊ£Óà×Ö·ûµÄ±éÀú
+					if (!IsNullable(proVector[indexM].left))	//å¦‚æœè¿™ä¸ªéç»ˆç»“ç¬¦ä¸èƒ½æ¨å‡ºç©º
+						break;			//é€€å‡ºå¯¹å‰©ä½™å­—ç¬¦çš„éå†
 				}
 			}
 		}
 	} while (CHANGING);
 }
 
-/*¼ÆËãÈÎÒâ´®µÄfirst¼¯*/
+/*è®¡ç®—ä»»æ„ä¸²çš„firsté›†*/
 set<char> calculateFirst_S(string right)
 {
 	if (IsTerminal(right[0])) {
@@ -280,23 +304,32 @@ set<char> calculateFirst_S(string right)
 		return res;
 	}
 	if (IsNonTerminal(right[0])) {
-		return proVector[getIndex(string("") + right)].firstSet;
+		return proVector[getIndex(string("") + right[0])].firstSet;
 	}
+	return set<char>();
 }
 
-/*´òÓ¡follow¼¯*/
+/*è®¡ç®—followé›†*/
 void calculateFollow(ProductionArray *production, const int N)
 {
+	/*
+		å¤åˆ¶ä¸€ä»½å½“å‰äº§ç”Ÿå¼å·¦è¾¹éç»ˆç»“ç¬¦çš„followé›†ä¸ºtempï¼Œ
+		ç„¶åé€†åºéå†è¯¥äº§ç”Ÿå¼å³è¾¹ï¼Œ
+		å¦‚æœæ˜¯ç»ˆç»“ç¬¦ï¼Œå°±æŠŠtempæ¸…ç©º,å¹¶æŠŠè¿™ä¸ªç»ˆç»“ç¬¦æ”¾è¿›temp
+		å¦‚æœæ˜¯éç»ˆç»“ç¬¦ï¼ŒæŠŠtempæ·»åŠ åˆ°è¿™ä¸ªéç»ˆç»“ç¬¦çš„follow,
+		ç„¶åå¦‚æœè¿™ä¸ªéç»ˆç»“ç¬¦æ¨ä¸å‡ºç©ºï¼Œå°±æŠŠè¿™ä¸ªéç»ˆç»“ç¬¦çš„firstå¤åˆ¶ç»™temp
+		å¦åˆ™æŠŠè¯¥éç»ˆç»“ç¬¦çš„firsté™¤å»ç©ºæ”¾è¿›temp
+	*/
 	set<char> temp;
-	proVector[getIndex(START)].followSet.insert('#');	//¿ªÊ¼·ûºÅfollowÌí¼Ó#
+	proVector[getIndex(START)].followSet.insert(HASH);	//å¼€å§‹ç¬¦å·followæ·»åŠ #
 	bool CHANGING = false;
 	do {
 		CHANGING = false;
 		for (int i = 0; i < N; i++) {
 			int index = getIndex(production[i].left);
-			temp = proVector[index].followSet;	//ÕâÀïÊÇ¿½±´¹¹Ôì
+			temp = proVector[index].followSet;	//è¿™é‡Œæ˜¯æ‹·è´æ„é€ 
 			string &right = production[i].right;
-			for (int j = right.size() - 1; j > -1; --j) {	//ÄæĞò£¬ÕâÀï²»ÄÜÓÃsize_t,ÒòÎªËüÓÀÔ¶²»»áĞ¡ÓÚ0
+			for (int j = right.size() - 1; j > -1; --j) {	//é€†åºï¼Œè¿™é‡Œä¸èƒ½ç”¨size_t,å› ä¸ºå®ƒæ°¸è¿œä¸ä¼šå°äº0
 				if (IsTerminal(right[j])) {
 					temp.clear();
 					temp.insert(right[j]);
@@ -315,7 +348,8 @@ void calculateFollow(ProductionArray *production, const int N)
 						temp = firstM;
 					else
 						for (char x : firstM)
-							temp.insert(x);
+							if (x != EMPTYCHAR)
+								temp.insert(x);
 				}
 			}
 		}
@@ -323,7 +357,7 @@ void calculateFollow(ProductionArray *production, const int N)
 }
 
 
-/*ÊäÈëÎÄ·¨*/
+/*è¾“å…¥æ–‡æ³•*/
 void inputSyntax(std::ifstream &is, char  buf[501], const int &LINE_LENGTH)
 {	
 	int N;
@@ -331,15 +365,15 @@ void inputSyntax(std::ifstream &is, char  buf[501], const int &LINE_LENGTH)
 	proVector.clear();
 	is >> N;
 	is >> START;
-	is.getline(buf, LINE_LENGTH);	//¶ÁÈ¡µÚÒ»ĞĞÊ£Óà¿Õ°××Ö·û
-									/*¶ÁÈ¡ÊäÈëµÄ²úÉúÊ½*/
+	is.getline(buf, LINE_LENGTH);	//è¯»å–ç¬¬ä¸€è¡Œå‰©ä½™ç©ºç™½å­—ç¬¦
+									/*è¯»å–è¾“å…¥çš„äº§ç”Ÿå¼*/
 	for (int i = 0; i < N; i++) {
-		is.getline(buf, LINE_LENGTH);	//½«ÊäÈë¶ÁÈ¡µ½buf
+		is.getline(buf, LINE_LENGTH);	//å°†è¾“å…¥è¯»å–åˆ°buf
 		int len = strlen(buf), j;
 		for (j = 0; j < len; j++)
-			if (buf[j] == '-')	//¼ì²âµ½¼ıÍ·¾ÍÍ££¬·Ö³ö×ó±ßºÍÓÒ±ß
+			if (buf[j] == '-')	//æ£€æµ‹åˆ°ç®­å¤´å°±åœï¼Œåˆ†å‡ºå·¦è¾¹å’Œå³è¾¹
 			{
-				buf[j] = 0;	//ÖÃÕâÀïÎª0¾ÍÈÃstring¹¹ÔìÆ÷ÔÚÕâÍ£ÁË
+				buf[j] = 0;	//ç½®è¿™é‡Œä¸º0å°±è®©stringæ„é€ å™¨åœ¨è¿™åœäº†
 				break;
 			}
 		string proLeft = buf;
@@ -349,58 +383,251 @@ void inputSyntax(std::ifstream &is, char  buf[501], const int &LINE_LENGTH)
 		if (!syntaxDic[proLeft])
 		{
 			proVector.push_back(Production(proLeft));
-			syntaxDic[proLeft] = proVector.size();	//ÈÃVN_dic[zgsLeft]ÕâÀï²»Îª0,ÒÔ´ËÅĞ¶ÏÊÇĞÂ½¨»¹ÊÇÖ±½ÓÌí¼Ó
+			syntaxDic[proLeft] = proVector.size();	//è®©VN_dic[zgsLeft]è¿™é‡Œä¸ä¸º0,ä»¥æ­¤åˆ¤æ–­æ˜¯æ–°å»ºè¿˜æ˜¯ç›´æ¥æ·»åŠ 
 		}
-		int x = syntaxDic[proLeft] - 1;	//¸ÕÊäµÄÕı¹æÊ½µÄÏÂ±ê
-		string proRight = buf + j + 2;	//ÈÃËü´ÓÓÒ±ß¿ªÊ¼¶Á
-		proVector[x].insert(proRight);	//¼ÓÈëÒ»¸öÓÒ±ß
+		int x = syntaxDic[proLeft] - 1;	//åˆšè¾“çš„æ­£è§„å¼çš„ä¸‹æ ‡
+		string proRight = buf + j + 2;	//è®©å®ƒä»å³è¾¹å¼€å§‹è¯»
+		proVector[x].insert(proRight);	//åŠ å…¥ä¸€ä¸ªå³è¾¹
 	}
 }
 
 
+//æ„é€ é¢„æµ‹åˆ†æè¡¨
+PredictTable& buildPredictive(int sum)
+{
+	PredictTable *predictTable = new PredictTable;
+	PredictTable &pT = *predictTable;
+	pT.col = new unordered_map<char, int>;
+	pT.row = new unordered_map<char, int>;
+	pT.START = START;
+	pT.proArray = proArray;
+	pT.proArraySize = sum;
+	auto &col = *pT.col;
+	auto &row = *pT.row;
+	int countNonTerminal = 0;
+	int countTerminal = 0;
+	for (Production &s : proVector) {	//éç»ˆç»“ç¬¦æ’å…¥å®Œæˆ
+		row[s.left[0]] = countNonTerminal++;
+	}
+	for (int i = 0; i < sum; i++) {
+		for (char c : proArray[i].right) {	//æ˜¯ç»ˆç»“ç¬¦ä¸”å°šæœªæ·»åŠ 
+			if (c != EMPTYCHAR && row.count(c) == 0 && col.count(c) == 0) {
+				col[c] = countTerminal++;
+			}
+		}
+	}
+	col[HASH] = countTerminal++;	//æ·»åŠ äº•å·
+
+
+	pT.table = new char*[row.size()];
+	for (size_t i = 0; i < row.size(); i++) {
+		pT.table[i] = new char[row.size()];
+	}
+	auto &table = pT.table;
+	for (size_t i = 0; i < row.size(); i++) {
+		for (size_t j = 0; j < col.size(); j++) {
+			table[i][j] = -1;	//åˆå§‹åŒ–é¢„æµ‹åˆ†æè¡¨
+		}
+	}
+	// é¢„æµ‹åˆ†æè¡¨èµ‹å€¼
+	for (int i = 0; i < sum; i++) {
+		set<char> firstSet = calculateFirst_S(proArray[i].right);
+		for (char c : firstSet) {
+			if (c != EMPTYCHAR)	//ä¸æ˜¯ç©º
+				table[row.at(proArray[i].left[0])][col.at(c)] = char(i);
+		}
+		if (firstSet.count(EMPTYCHAR) != 0) {
+			set<char> &followSet = proVector[getIndex(proArray[i].left)].followSet;
+			for (char c : followSet) {
+				if (c != EMPTYCHAR)	//ä¸æ˜¯ç©º
+					table[row.at(proArray[i].left[0])][col.at(c)] = char(i);
+			}
+		}
+	}
+	return pT;
+}
+
+
+
+vector<Token> tokenTransform(string tokens)
+{
+    vector<Token> tokenVector;
+    string res("");
+    Token a;
+    for (int i = 0; i < tokens.length(); i++) {
+        if (tokens[i] == '(') {
+            int j = i + 1;
+            for (; j < tokens.length(); j++) {
+                if (tokens[j] == ',')
+                    break;
+            }
+            //res += tokens.substr(i + 1, j - i + 1);
+            string typeStr = tokens.substr(i + 1, j - i - 1);
+            int typeId = stoi(typeStr);
+            a.type = typeId;
+        }
+        else if (tokens[i] == ',') {
+            int j = i + 1;
+            for (; j < tokens.length(); j++) {
+                if (tokens[j] == ')')
+                    break;
+            }
+            //res += tokens.substr(i + 1, j - i + 1);
+            string valueStr = tokens.substr(i + 1, j - i - 1);
+            a.value = valueStr;
+            tokenVector.push_back(a);
+        }
+    }
+    return tokenVector;
+}
+
+
+
+char getTerminal(int n)
+{
+    switch (n) {
+    case 1: return KEYCHAR; //int,folat,double...
+    case 2: return IDENTIFIER; //abc
+    case 3: return DIVIDE;  //,;
+    case 4: return NUMBER;
+    case 5: return 'e';
+    case 6: return 'f';
+    default:return '\0';
+    }
+}
+
+
+
+string getStrToAnalysis(vector<Token> &tokenVector)
+{
+    string res = "";
+    char ch;
+    for (Token token : tokenVector) {
+        ch = getTerminal(token.type);
+        if (ch == DIVIDE) {
+            ch = divide[stoi(token.value)];
+        }
+        else if (ch == OPER) {
+            ch = oper[stoi(token.value)];
+        }
+        res += ch;
+    }
+    return res;
+}
+
+
+string getFinalStr(string tokens)
+{
+    auto tokenVector = tokenTransform(tokens);
+    return getStrToAnalysis(tokenVector);
+}
+
+
+
+
+
+void analysis(PushDownAuto &pd, string statement)
+{
+    printf("è¿™æ˜¯åˆ†æè¿‡ç¨‹\n\n");
+    bool flag = false;
+    for (int i = 0; i <= predictTables.size(); i++) {
+        pd.changeTable(&predictTables[i]);
+        flag = pd.analysis(statement);
+        if (flag)
+            return;
+    }
+}
+
+
+void readAndAnalysis(std::ifstream &is1)
+{
+    string tokens;
+    PushDownAuto pdAuto;    //æ„é€ ä¸‹æ¨è‡ªåŠ¨æœº,é»˜è®¤è‡ªåŠ¨æ‰“å¼€ä¸€ä¸ªæ–‡ä»¶ä½œä¸ºè¾“å‡º
+    while (!is1.eof()) {
+        is1 >> tokens;
+        string statement = getFinalStr(tokens);
+
+        analysis(pdAuto, statement);
+    }
+    pdAuto.os.close();  //å…³é—­æ–‡ä»¶
+}
 
 int main()
 {
 	char buf[MAX];
 	const int LINE_LENGTH = 500;
 	ifstream is(openFile);
-	/*ÓĞ¼¸¸öÓï·¨*/
+	/*æœ‰å‡ ä¸ªè¯­æ³•*/
 	int N;
-	is >> N;	// TODO ÕâÀï£¬Ã¿´Î¶ÁÈëÒ»¸öÓï·¨£¬È»ºó°ÑÕâ¸öÓï·¨µÄÔ¤²â·ÖÎö±í£¬ÏÂÍÆ×Ô¶¯»úÉú³ÉÒÔºó£¬ÔÙ¶ÁÏÂÒ»¸öÓï·¨¡£
-	is.getline(buf, LINE_LENGTH);
-	/*ÊäÈëÎÄ·¨*/
-	inputSyntax(is, buf, LINE_LENGTH);
-	printSyntax();
-	putchar('\n');
-		/*°Ñ×î³õÊäÈëµÄWFÔ­Ñù±£´æ*/
-	Syntax tmpSyntax(proVector);
-	remove();
-	extract();
-//-----------------------------------------------------
-	int sum = 0;	//×öÍêÏû×óµİ¹éºÍÌá×óÒò×ÓÒÔºóµÄÕı¹æÊ½Êı
-	for (Production cfg : proVector) {
-		sum += cfg.right.size();
-	}
-	productionArray = new ProductionArray[sum];
-	int count = 0;
-	for (const Production &cfg : proVector) {
-		for (const string &s : cfg.right) {
-			productionArray[count].left = cfg.left;
-			productionArray[count].right = s;
-			count++;
+	is >> N;	// TODO è¿™é‡Œï¼Œæ¯æ¬¡è¯»å…¥ä¸€ä¸ªè¯­æ³•ï¼Œç„¶åæŠŠè¿™ä¸ªè¯­æ³•çš„é¢„æµ‹åˆ†æè¡¨ï¼Œä¸‹æ¨è‡ªåŠ¨æœºç”Ÿæˆä»¥åï¼Œå†è¯»ä¸‹ä¸€ä¸ªè¯­æ³•ã€‚
+	is.getline(buf, LINE_LENGTH);	//è¯»å–ç©ºè¡Œ
+	/*è¾“å…¥æ–‡æ³•,æ„é€ Nå¼ é¢„æµ‹åˆ†æè¡¨*/
+	while (N-- != 0) {
+		inputSyntax(is, buf, LINE_LENGTH);
+		/*æ‰“å°è¾“å…¥çš„æ–‡æ³•*/
+		//printSyntax();
+		putchar('\n');
+			/*æŠŠæœ€åˆè¾“å…¥çš„WFåŸæ ·ä¿å­˜*/
+		Syntax tmpSyntax(proVector);
+		syntaxBuffer.push_back(tmpSyntax);
+
+        printf("\nåŸäº§ç”Ÿå¼:\n");
+        printSyntax();
+
+		/*æ¶ˆé™¤å·¦é€’å½’*/
+		remove();
+        printf("\næ¶ˆé™¤å·¦é€’å½’ä»¥åçš„äº§ç”Ÿå¼:\n");
+        printSyntax();
+
+		/*æå–å·¦å› å­*/
+		extract();
+        printf("\næå–å·¦å› å­ä»¥åçš„äº§ç”Ÿå¼:\n");
+        printSyntax();
+
+	//-----------------------------------------------------
+		int sum = 0;	//åšå®Œæ¶ˆå·¦é€’å½’å’Œæå·¦å› å­ä»¥åçš„æ­£è§„å¼æ•°
+		for (Production cfg : proVector) {
+			sum += cfg.right.size();
 		}
+		proArray = new ProductionArray[sum];
+		int count = 0;
+		for (const Production &cfg : proVector) {
+			for (const string &s : cfg.right) {
+				proArray[count].left = cfg.left;
+				proArray[count].right = s;
+				count++;
+			}
+		}
+		
+	//-----------------------------------------------------
+		calculateNullable(proArray, sum);
+
+		calculateFirst(proArray, sum);  //è®¡ç®—First
+        printFirst();
+
+		calculateFollow(proArray, sum); //è®¡ç®—Follow
+        printFollow();
+    //------------------------------------------------------
+		PredictTable pt = buildPredictive(sum); //æ„é€ é¢„æµ‹åˆ†æè¡¨
+		predictTables.push_back(pt);    //æ„é€ ä¸€å¼ å°±æ”¾åˆ°vectoré‡Œé¢
 	}
-	for (int i = 0; i < sum; i++) {
-		cout << productionArray[i].left << "->" << productionArray[i].right << endl;
+	is.close();
+		//pt.print();
+	//printf("ä»¥ä¸Šæ˜¯ä¸´æ—¶ç”¨\n\n");
+    //æ‰“å°æ¯å¼ é¢„æµ‹åˆ†æè¡¨
+	for (PredictTable tb : predictTables) {
+		tb.print();
 	}
-//-----------------------------------------------------
-	calculateNullable(productionArray, sum);
-	calculateFirst(productionArray, sum);
-	calculateFollow(productionArray, sum);
-
-
-	printFirst();
-	printFollow();
-
+	putchar('\n');
+	ifstream is1("input.txt");  //è¯»å–è¦è¾“å…¥çš„è®°å·æµ
+    readAndAnalysis(is1);
+	is1.close();
+	//char tmpR=' ', tmpC=' ';
+	//while (tmpR != '9') {
+	//	printf("è¾“å…¥:");
+	//	scanf(" %c", &tmpR);
+	//	scanf(" %c", &tmpC);
+	//	printf("\n\n\n\n%d", pt.getProIndex(tmpR, tmpC));
+	//}
 	system("pause");
 }

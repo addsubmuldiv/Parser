@@ -115,14 +115,16 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <Text Include="declear.txt" />
+    <Text Include="input.txt" />
     <Text Include="test.txt" />
     <Text Include="test2.txt" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="parser.h" />
+    <ClCompile Include="源.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="源.cpp" />
+    <ClInclude Include="parser.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

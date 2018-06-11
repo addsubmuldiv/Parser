@@ -1,0 +1,16 @@
+2
+5 A
+A->aB
+B->b;
+B->bC;
+C->,b
+C->,bC
+8 A
+A->b=B;
+B->b
+B->b+B
+B->b+C
+B->d+B
+B->C
+C->d
+C->d+C
